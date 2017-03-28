@@ -1,0 +1,139 @@
+<html>
+    <head>
+        <title>Graph tweets</title>
+    </head>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="javascript/app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/sockjs/1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <body>
+        <canvas id="graph" width="400" height="400"></canvas>
+        <script>
+            var connected = false;
+
+            function connect(){
+                connected = true;
+                document.getElementById('connect').disabled = connected;
+                document.getElementById('disconnect').disabled = false;
+            };
+
+            function disconnect(){
+                connected = false;
+                document.getElementById('disconnect').disabled = true;
+                document.getElementById('connect').disabled = false;
+            };
+
+            // graph data initialization
+            var labels = ["","","","","","",""];
+            var data = ["","","","","","",""];
+            var period = 10000; // period of time the client poll the server
+
+            // polling the server every X second
+            setInterval(
+                function(){
+                  if ( connected ){
+                      $.ajax({
+                        type:"GET",
+                        url: "/getTrackData",
+                        global: false,
+                        async:false,
+                        success: function showDataOutput(messageOutput) {
+
+                            labels.shift();
+                            labels.push(new Date().toTimeString().replace(/.*(\d{2}:\d{2}:\d{2}).*/, "$1"));
+
+                            data.shift();
+                            data.push(messageOutput.counter);
+
+                            var ctx = document.getElementById("graph");
+                            var myChart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: messageOutput.counter + ' Tweets',
+                                        data: data,
+                                        backgroundColor: [
+                                            'rgba(255, 99, 132, 0.2)',
+                                            'rgba(54, 162, 235, 0.2)',
+                                            'rgba(255, 206, 86, 0.2)',
+                                            'rgba(75, 192, 192, 0.2)',
+                                            'rgba(153, 102, 255, 0.2)',
+                                            'rgba(255, 159, 64, 0.2)'
+                                        ],
+                                        borderColor: [
+                                            'rgba(255,99,132,1)',
+                                            'rgba(54, 162, 235, 1)',
+                                            'rgba(255, 206, 86, 1)',
+                                            'rgba(75, 192, 192, 1)',
+                                            'rgba(153, 102, 255, 1)',
+                                            'rgba(255, 159, 64, 1)'
+                                        ],
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    scales: {
+                                        yAxes: [{
+                                            ticks: {
+                                                beginAtZero:true
+                                            }
+                                        }]
+                                    },
+                                    responsive: true
+                                }
+                            });
+                        }
+                      })
+                    }
+                },
+                period
+            );
+
+            // send new track request
+            function send(){
+
+                // graph data reset
+                labels = ["","","","","","",""];
+                data = ["","","","","","",""];
+
+                // request for track a given text
+                $.ajax({
+                    type:"POST",
+                    contentType: 'application/json',
+                    url: "/track",
+                    data: JSON.stringify({
+                      text: $('#track').val()
+                    }),
+                    global: false,
+                    async:false,
+                    success: function showDataOutput( messageOutput ) {
+                        console.log("OK");
+                    }
+                });
+
+                // update connection status and buttom
+                connect();
+            }
+
+
+
+        </script>
+        <div>
+            <div>
+                <input type="text" id="track" placeholder="Value to track..."/>
+                <button id="connect" onclick="connect();">Connect</button>
+                <button id="disconnect" disabled="disabled" onclick="disconnect();">Disconnect</button>
+                <button id="send" onclick="send();">Send new track</button>
+            </div>
+        </div>
+
+        <h3>Connected to Twitter</h3>
+
+        <p>
+            You are now connected to your Twitter account.
+            Click <a href="/">here</a> to see your Twitter friends.
+        </p>
+    </body>
+</html>
